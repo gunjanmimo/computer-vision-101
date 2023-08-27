@@ -1,4 +1,3 @@
-# %%
 import torch.nn as nn
 from typing import Any, List
 
@@ -29,10 +28,10 @@ class ResidualBlock(nn.Module):
         )
         self.layer_2 = nn.Sequential(
             nn.Conv2d(
-                in_channels=in_channel,
+                in_channels=out_channel,  # Use out_channel here
                 out_channels=out_channel,
                 kernel_size=3,
-                stride=stride,
+                stride=1,  # Always use stride 1 for the second conv layer
                 padding=padding,
             ),
             nn.BatchNorm2d(out_channel),
@@ -46,7 +45,7 @@ class ResidualBlock(nn.Module):
         if self.down_sample:
             residual = self.down_sample(x)
         out += residual
-        out = nn.ReLU(out)
+        out = nn.ReLU()(out)  # Apply ReLU activation
         return out
 
 
@@ -89,7 +88,7 @@ class Resnet50(nn.Module):
 
     def _make_res_block(self, out_channel: int, num_block: int, stride: int = 1):
         down_sample = None
-        if stride != 1 and self.inplanes != out_channel:
+        if stride != 1 or self.inplanes != out_channel:  # Condition updated
             down_sample = nn.Sequential(
                 nn.Conv2d(
                     in_channels=self.inplanes,
@@ -116,30 +115,23 @@ class Resnet50(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        # input shape --------> batch_size, 3, 224, 224
         x = self.conv_1(x)
+        # input shape --------> batch_size, 64, 112, 112
         x = self.maxpool(x)
 
+        # input shape --------> batch_size, 64, 56, 56
         x = self.res_block_1(x)
+        # input shape --------> batch_size, 64, 56, 56
         x = self.res_block_2(x)
+        # input shape --------> batch_size, 128, 28, 28
         x = self.res_block_3(x)
+        # input shape --------> batch_size, 256, 14, 14
         x = self.res_block_4(x)
 
+        # input shape --------> batch_size, 512, 7, 7
         x = self.avg_pool(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
         return x
-
-
-if __name__ == "__main__":
-    import torch
-
-    rand_image = torch.randint(
-        low=0, high=255, size=(1, 3, 224, 224), dtype=torch.float32
-    )
-    print(rand_image.shape)
-    print("-" * 100)
-    model = Resnet50(layers=[3, 4, 6, 3], num_class=10)
-    output = model(rand_image)
-    print(output.shape)
-# %%
