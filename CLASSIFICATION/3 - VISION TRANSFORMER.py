@@ -8,14 +8,13 @@ class PatchEmbeddingLayer(nn.Module):
         in_channel: int,
         patch_size: int,
         embedding_dim: int,
-        batch_size: int,
         num_patches: int,
+        batch_size: int,
     ) -> None:
         super(PatchEmbeddingLayer, self).__init__()
         self.in_channel = in_channel
         self.patch_size = patch_size
         self.embedding_dim = embedding_dim
-        self.batch_size = batch_size
         self.conv_layer = nn.Conv2d(
             in_channels=in_channel,
             out_channels=embedding_dim,
@@ -24,7 +23,7 @@ class PatchEmbeddingLayer(nn.Module):
         )
         self.flatten_layer = nn.Flatten(start_dim=1, end_dim=2)
         self.class_token_embedding = nn.Parameter(
-            torch.rand(batch_size, 1, embedding_dim), requires_grad=True
+            torch.rand(1, 1, embedding_dim), requires_grad=True
         )
         self.position_embedding = nn.Parameter(
             torch.rand(1, num_patches + 1, embedding_dim), requires_grad=True
@@ -37,13 +36,16 @@ class PatchEmbeddingLayer(nn.Module):
         # flatten - it is embedded image
         flatten_image = self.flatten_layer(image_through_conv)
 
+        batch_size = x.size(0)  # Get the actual batch size dynamically
+
+        class_token_embedding = self.class_token_embedding.expand(batch_size, -1, -1)
+        position_embedding = self.position_embedding.expand(batch_size, -1, -1)
+
         embedded_image_with_class_token_embedding = torch.cat(
-            (self.class_token_embedding, flatten_image), dim=1
+            (class_token_embedding, flatten_image), dim=1
         )
 
-        final_embedding = (
-            embedded_image_with_class_token_embedding + self.position_embedding
-        )
+        final_embedding = embedded_image_with_class_token_embedding + position_embedding
         return final_embedding
 
 
