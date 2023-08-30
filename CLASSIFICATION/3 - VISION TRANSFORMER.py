@@ -49,9 +49,7 @@ class PatchEmbeddingLayer(nn.Module):
 
 class MultiHeadedAttentionBlcok(nn.Module):
     def __init__(
-        self,
-        embedding_dim: int = 768,
-        num_head: int = 12,
+        self, embedding_dim: int = 768, num_head: int = 12, attn_dropout=0
     ) -> None:
         super(MultiHeadedAttentionBlcok, self).__init__()
         self.embedding_dim = embedding_dim
@@ -95,7 +93,7 @@ class MachineLearningPerceptronBlock(nn.Module):
 class TransformerBlock(nn.Module):
     def __init__(
         self,
-        embedding_dims=768,
+        embedding_dim=768,
         mlp_dropout=0.1,
         attn_dropout=0.0,
         mlp_size=3072,
@@ -104,13 +102,13 @@ class TransformerBlock(nn.Module):
         super().__init__()
 
         self.msa_block = MultiHeadedAttentionBlcok(
-            embedding_dims=embedding_dims,
-            num_heads=num_heads,
+            embedding_dim=embedding_dim,
+            num_head=num_heads,
             attn_dropout=attn_dropout,
         )
 
         self.mlp_block = MachineLearningPerceptronBlock(
-            embedding_dims=embedding_dims,
+            embedding_dim=embedding_dim,
             mlp_size=mlp_size,
             mlp_dropout=mlp_dropout,
         )
@@ -125,27 +123,34 @@ class TransformerBlock(nn.Module):
 class ViT(nn.Module):
     def __init__(
         self,
-        img_size=224,
+        num_classes: int,
+        batch_size: int,
+        img_width: int,
+        img_height: int,
         in_channels=3,
         patch_size=16,
-        embedding_dims=768,
+        embedding_dim=768,
         num_transformer_layers=12,  # from table 1 above
         mlp_dropout=0.1,
         attn_dropout=0.0,
         mlp_size=3072,
         num_heads=12,
-        num_classes=1000,
     ):
         super().__init__()
+        num_patches = int((img_width * img_height) / patch_size**2)
 
         self.patch_embedding_layer = PatchEmbeddingLayer(
-            in_channels=in_channels, patch_size=patch_size, embedding_dim=embedding_dims
+            in_channel=in_channels,
+            patch_size=patch_size,
+            embedding_dim=embedding_dim,
+            batch_size=batch_size,
+            num_patches=num_patches,
         )
 
         self.transformer_encoder = nn.Sequential(
             *[
                 TransformerBlock(
-                    embedding_dims=embedding_dims,
+                    embedding_dim=embedding_dim,
                     mlp_dropout=mlp_dropout,
                     attn_dropout=attn_dropout,
                     mlp_size=mlp_size,
@@ -156,8 +161,8 @@ class ViT(nn.Module):
         )
 
         self.classifier = nn.Sequential(
-            nn.LayerNorm(normalized_shape=embedding_dims),
-            nn.Linear(in_features=embedding_dims, out_features=num_classes),
+            nn.LayerNorm(normalized_shape=embedding_dim),
+            nn.Linear(in_features=embedding_dim, out_features=num_classes),
         )
 
     def forward(self, x):
